@@ -104,6 +104,31 @@ Transition line: now that the runtime path is clear, show how images are produce
 
 ---
 
+## Image Management Workflow
+
+1. In the producer repo (`decomk-conf-cswg`), start with a minimal Dockerfile:
+   - `FROM` a base image (for example `ubuntu:24.04`)
+   - install only bootstrap prerequisites (for example `go`, `make`, `sshd`)
+2. Build a new checkpoint candidate:
+   - run `decomk checkpoint build`
+   - publish candidate image tags to a registry for testing (for example Docker Hub or GHCR)
+3. After testing passes:
+   - tag the validated image as a stable channel (for example `:stable`)
+   - push/update that stable tag in the registry
+   - update the producer repo's own `.devcontainer/devcontainer.json` to use the new stable image
+4. Point all consumer repos at the producer's `:stable` image in their `.devcontainer/devcontainer.json`.
+5. Continue evolving shared setup in the producer `Makefile`.
+6. When builds become slow again, repeat:
+   - `decomk checkpoint build`
+   - test
+   - tag/push
+   - move `:stable` to the newly validated image
+
+???
+Frame this as a repeatable loop: minimal base, checkpoint, validate, promote, consume, then checkpoint again when build cost grows.
+
+---
+
 ## Migration Timeline
 
 1. JJ created pre-release `workspace-config`.
