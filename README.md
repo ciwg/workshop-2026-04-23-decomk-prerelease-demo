@@ -13,12 +13,18 @@ Open with the outcome: this is a migration from ad-hoc prerelease practices to a
 
 ## Executive Summary
 
+- We are speed-running several years of evolution and training, and
+  effort originally funding by multinational trillion-dollar
+  corporations, into a few weeks of work
+- So this is all pretty rough but coming together -- wouldn't be
+  possible at all without LLMs.
 - We are standardizing devcontainer setup on a single-execution-path
   lifecycle for both builds and updates.
 - We use a baseline image for all repos' codespaces so we have
   predictable tools available for all.
 - Builds get checkpointed periodically to keep first-boot times short.
-- Codespaces start from those checkpoints and run user/repo-specific setup on top.
+- Codespaces start from those checkpoints and run user/repo-specific
+  setup on top.
 
 ???
 State the headline early so each later slide feels like evidence for these four claims.
