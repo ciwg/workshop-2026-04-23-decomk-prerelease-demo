@@ -31,6 +31,19 @@ State the headline early so each later slide feels like evidence for these four 
 
 ---
 
+## Current Status Snapshot
+
+- `decomk` defines and enforces the stage-0/lifecycle contract.
+- `decomk-conf-cswg` is active as both shared policy repo and shared image producer repo.
+- Consumer repos are converging on release version of decomk, with bug
+  fixes and image-consumption validation in `mob-sandbox` pilot.
+
+???
+Use this slide to close the argument: architecture, process, and rollout are aligned.
+
+---
+
+
 ## Glossary 
 
 - **Devcontainer**: a ready-to-use development environment for a repo, running in a container.
@@ -241,18 +254,6 @@ Acknowledge operational reality so the model stays credible and usable.
 
 ???
 This turns the conceptual model back into current project execution status.
-
----
-
-## Current Status Snapshot
-
-- `decomk` defines and enforces the stage-0/lifecycle contract.
-- `decomk-conf-cswg` is active as both shared policy repo and shared image producer repo.
-- Consumer repos are converging on promoted-tag consumption.
-- The migration is active, not theoretical.
-
-???
-Use this slide to close the argument: architecture, process, and rollout are aligned.
 
 ---
 
