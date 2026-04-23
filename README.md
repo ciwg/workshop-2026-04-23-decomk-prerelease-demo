@@ -4,53 +4,77 @@ class: center, middle
 
 ## From Pre-Release Setup to Production-Ready Flow
 
-### Layperson-friendly walkthrough of the `outline.md` topics
+### Migration architecture and command-sourcing model
+
+???
+Open with the outcome: this is a migration from ad-hoc prerelease practices to a production operating model.
 
 ---
 
-## Why This Deck Exists
+## Executive Summary
 
-This deck explains a real migration story across four repos:
+- We are standardizing devcontainer setup on a single-path lifecycle.
+- `decomk-conf-cswg` now serves two roles: policy repo and image producer repo.
+- Consumer repos move faster by consuming promoted checkpoint images.
+- Ordering discipline is a design requirement, not an implementation preference.
 
-- this workshop repo (slides)
-- `decomk` (the bootstrap tool)
-- `decomk-conf-cswg` (shared setup policy)
-- `mob-sandbox` (pilot consumer repo)
-
-Goal: make the technical outline understandable to people who do not live in this stack every day.
-
----
-
-## Prerequisite Vocabulary
-
-- **Devcontainer**: a pre-defined development environment (tools + settings) that opens in a container.
-- **Codespaces**: GitHub-hosted devcontainers.
-- **Bootstrap**: first steps that prepare an environment so work can start.
-- **Config repo**: a shared repo that stores setup policy used by many project repos.
-- **Lifecycle phases**:
-  - `updateContent` = prebuild/common setup
-  - `postCreate` = first-boot/user setup
+???
+State the headline early so each later slide feels like evidence for these four claims.
 
 ---
 
-## Repo Roles in Plain English
+## System Map
 
-| Repo | Role | Why it matters |
+| Repo | Primary role | Operational value |
 |---|---|---|
-| `decomk` | Runs setup rules | Turns policy into repeatable actions |
-| `decomk-conf-cswg` | Shared policy (`decomk.conf` + `Makefile`) | One place to manage common setup |
-| `mob-sandbox` | Test consumer | Safe place to prove changes before wider rollout |
-| `workshop-2026-04-23-decomk-prerelease-demo` | Presentation scaffold | Communicates migration decisions |
+| `decomk` | Bootstrap/runtime engine | Executes policy deterministically |
+| `decomk-conf-cswg` | Shared policy + checkpoint image producer | Centralizes setup logic and image publication |
+| `mob-sandbox` | Pilot consumer | Fast validation loop before wider rollout |
+
+???
+Use this as the stable map for the rest of the deck; keep returning to these three repos.
 
 ---
 
-## The Storyline from `outline.md`
+## Lifecycle Contract (Single Path)
 
-1. A pre-release config repo existed (`workspace-config`, created by JJ).
-2. Steve forked and evolved it into `decomk-conf-cswg` for post-release production use.
-3. `mob-sandbox` is the guinea pig for validating the new pattern.
-4. `fpga-workbench` migration is happening in parallel.
-5. Underneath this migration is a bigger concept: command history should be treated as source-of-truth.
+Shared setup follows one canonical execution path:
+
+1. `updateContent` runs common setup.
+2. Stage-0 calls `decomk run <action>`.
+3. `decomk` resolves tuples from `decomk.conf`.
+4. `make` runs the ordered target graph in stamp space.
+5. `postCreate` handles runtime/user-specific changes.
+
+???
+Emphasize that producer builds and consumer prebuilds share the same `updateContent -> decomk run` path.
+
+---
+
+## Producer/Consumer Image Management
+
+- `decomk-conf-cswg` is the producer repo for checkpoint images.
+- Producer builds freeze shared state from the same prebuild path used in normal lifecycle execution.
+- Consumer repos (`mob-sandbox`, `fpga-workbench`, others) reference promoted tags in `.devcontainer/devcontainer.json`.
+- User/runtime customization remains in `postCreate`, outside shared checkpoint layers.
+
+Reference design: `decomk/doc/image-management.md`.
+
+???
+Transition line: now that the runtime path is clear, show how images are produced once and consumed many times.
+
+---
+
+## Migration Timeline
+
+1. JJ created pre-release `workspace-config`.
+2. Steve forked it to `decomk-conf-cswg` and aligned it to post-release decomk behavior.
+3. `mob-sandbox` became the pilot consumer for migration proof.
+4. `fpga-workbench` is being converted in parallel.
+5. Producer/consumer image flow is becoming the default operating pattern.
+
+???
+Keep this chronological and concrete; it anchors the technical slides in real repo history.
 
 ---
 
@@ -60,146 +84,186 @@ Goal: make the technical outline understandable to people who do not live in thi
 |---|---|---|
 | Stage-0 source vars | Multiple legacy vars/modes | URI contract: `DECOMK_TOOL_URI`, `DECOMK_CONF_URI` |
 | Tool install semantics | "latest" often assumed "newest commit" | `@latest` resolves to latest tagged version |
-| Setup location | More mixed between Dockerfile/hooks | Prefer single-path Makefile-driven setup |
-| Image model | Less explicit producer/consumer story | Config repo produces checkpointable shared state; target repos consume images |
+| Setup location | Mixed Dockerfile/hook logic | Single-path Makefile-driven flow |
+| Image model | Weak producer/consumer separation | `decomk-conf-cswg` produces, target repos consume promoted images |
+
+???
+This is the key comparison slide; all earlier slides define the "after" column.
 
 ---
 
-## Important Detail: `@latest` Is Tag-Latest
+## Release Semantics: `@latest` Is Tag-Latest
 
 In Go module installs:
 
-- `go install module@latest` resolves to the latest tagged release
-- it does **not** guarantee the latest untagged commit on `main`
+- `go install module@latest` resolves to the latest tagged release,
+- not necessarily the latest untagged commit on `main`.
 
-Why this matters:
+Operational implication:
 
-- DevOps workflows need explicit release discipline
-- "what is deployed" must be predictable and auditable
+- release/tag policy must be explicit,
+- deployment provenance must be auditable.
 
----
-
-## Lifecycle Model (Single Path)
-
-Shared setup should follow one canonical flow:
-
-1. `updateContent` runs common setup work.
-2. Stage-0 script calls `decomk run <action>`.
-3. `decomk` resolves tuples from `decomk.conf`.
-4. `make` executes target graph in stamp space.
-
-Then `postCreate` handles user/runtime-specific steps.
+???
+This is where engineering process meets tooling semantics; do not skip this nuance.
 
 ---
 
-## Why `mob-sandbox` Is the Pilot
+## Why Ordering Is a Hard Requirement
 
-`mob-sandbox` is intentionally used as a proving ground before broader adoption.
+Infrastructure changes are self-referential:
 
-It gives the team a place to:
+- tools run inside the systems they modify,
+- each change can alter the behavior of later changes,
+- identical operations in different orders can produce different outcomes.
 
-- validate migration mechanics,
-- test lifecycle behavior (`updateContent` and `postCreate`),
-- catch regressions before applying the pattern to heavier repos.
+Therefore: deterministic ordering is required for predictable replay from test to production.
 
----
-
-## Parallel Workstream: `fpga-workbench`
-
-While pilot validation happens in `mob-sandbox`, the team is also converting `fpga-workbench`.
-
-Key post-release expectations there:
-
-- avoid per-repo Dockerfile drift when possible,
-- keep build/provision logic in Makefile targets,
-- run decomk in both lifecycle phases.
+???
+Bridge to the papers: the migration choices are grounded in this property, not just team preference.
 
 ---
 
-## Big Concept: Event Sourcing vs Command Sourcing
+## Infrastructures.Org Lineage
 
-- **Event sourcing** (accounting analogy): journal entries describe what happened.
-- **Command sourcing** (this context): ordered setup commands create current machine state.
+- Infrastructures.Org emerged from enterprise infrastructure work in the late 1990s and early 2000s.
+- `isconf` and later `decomk` share this lineage.
+- Two papers frame the model used here:
+  - *Bootstrapping an Infrastructure* (1998)
+  - *Why Order Matters* (2002)
 
-Simple framing:
+???
+Position these papers as the conceptual foundation for the operating model now being applied.
 
-- source documents in accounting -> transactions -> books
-- source documents in infrastructure -> commands -> machine state
+---
+
+## Paper Lens: Bootstrapping an Infrastructure (1998)
+
+Key contributions used in this migration:
+
+- infrastructure as a policy-driven virtual machine,
+- bootstrap through explicit dependency ordering,
+- centralized source documents over host-local drift,
+- one method that scales from one host to many hosts.
+
+???
+Tie this directly to config repo policy + ordered Makefile execution.
+
+---
+
+## Paper Lens: Why Order Matters (2002)
+
+Key contributions used in this migration:
+
+- host administration is computationally expressive and self-modifying,
+- circular dependencies are unavoidable,
+- test environments are mandatory,
+- production must replay the tested order to control risk.
+
+???
+Connect this to checkpoint promotion and deterministic rollout practices.
+
+---
+
+## Command Sourcing in Practice
+
+- Event sourcing tracks events that occurred.
+- Command sourcing tracks ordered instructions that create state.
+
+In this stack:
+
+- Makefile stanzas are source documents,
+- replay order is part of correctness,
+- state is the result of executed command history.
+
+???
+Keep this practical: this is not abstract theory, it is how reproducibility is enforced.
 
 ---
 
 ## Source Documents and History Discipline
 
-In this model, a Makefile stanza is treated as a source document.
+Practical operating rule:
 
-Practical rule:
+- treat versioned setup stanzas as append-only history,
+- add new stanzas for upgrades,
+- avoid rewriting prior history except controlled corrective actions.
 
-- prefer append-only changes for versioned setup
-- avoid rewriting old history unless a controlled exception is required
+Result:
 
-This keeps provenance clear and rollback reasoning easier.
+- clearer provenance,
+- safer rollback reasoning,
+- lower ambiguity during incident response.
 
----
-
-## Blockchain Analogy (and Limits)
-
-Useful analogy from the outline:
-
-- blockchain records are intentionally hard to rewrite
-- command history for infrastructure also benefits from tamper-evident thinking
-
-But strict immutability has limits:
-
-- real operations sometimes require corrective edits
-- example: package ecosystem drift and cache/repository mismatch incidents
+???
+This slide defines day-to-day editing behavior and change governance.
 
 ---
 
-## Why This Is Hard in Practice
+## Limits and Real-World Friction
 
-The outline highlights a structural challenge:
+Even with disciplined ordering:
 
-- many OS/package ecosystems are not designed for perfect long-term reproducibility
-- repositories expire packages
-- historical rebuilds can break without independent artifact capture
+- package repositories expire artifacts,
+- historical rebuilds can fail without local capture,
+- occasional corrective intervention is still necessary.
 
-So teams need both:
+So the model is:
 
-- disciplined command history,
-- and pragmatic recovery/override mechanisms.
+- strict by default,
+- explicit about exceptions.
 
----
-
-## Mental Model for a Lay Audience
-
-Think of this as "infrastructure bookkeeping":
-
-- commands are ledger entries,
-- order matters,
-- edits to old entries are risky,
-- reproducibility improves when the ledger is explicit and shared.
-
-`decomk` provides the mechanism; the config repo provides policy.
+???
+Acknowledge operational reality so the model stays credible and usable.
 
 ---
 
-## Current Migration Status Snapshot
+## Execution Streams Right Now
 
-- `decomk` defines the tool/lifecycle contract.
-- `decomk-conf-cswg` is the active shared policy repo.
-- `mob-sandbox` is the live pilot consumer.
-- `fpga-workbench` conversion is in progress in parallel.
+- `mob-sandbox`: pilot consumer validating lifecycle and image-consumption behavior.
+- `fpga-workbench`: parallel migration stream applying the same post-release model.
+- `decomk-conf-cswg`: active policy and image producer for shared baseline evolution.
 
-This is the concrete context behind the outline discussion.
+???
+This turns the conceptual model back into current project execution status.
 
 ---
 
-## Suggested Discussion Prompts
+## Current Status Snapshot
 
-1. Which setup steps are truly shared vs user-specific?
-2. Where do we require append-only history, and where are controlled edits acceptable?
-3. What release-tag policy should govern `DECOMK_TOOL_URI` in production?
-4. Which repos should migrate next after pilot confidence is established?
+- `decomk` defines and enforces the stage-0/lifecycle contract.
+- `decomk-conf-cswg` is active as both shared policy repo and shared image producer repo.
+- Consumer repos are converging on promoted-tag consumption.
+- The migration is active, not theoretical.
+
+???
+Use this slide to close the argument: architecture, process, and rollout are aligned.
+
+---
+
+## Discussion Prompts
+
+1. Which steps must remain shared-image responsibilities vs `postCreate` responsibilities?
+2. Which changes require append-only stanzas, and what qualifies as an exception?
+3. What tag/channel policy should govern `DECOMK_TOOL_URI` and produced checkpoint images?
+4. Which repos should be next in migration order after current pilot confidence?
+
+???
+Invite decisions, not general commentary; these questions drive implementation planning.
+
+---
+
+## References
+
+- Infrastructures.Org (project site): http://www.infrastructures.org
+- Steve Traugott, Joel Huddleston. *Bootstrapping an Infrastructure* (LISA '98, original): https://www.usenix.org/legacy/publications/library/proceedings/lisa98/full_papers/traugott/traugott_html/traugott.html
+- *Bootstrapping an Infrastructure* (Infrastructures.Org updated version): http://www.infrastructures.org/papers/bootstrap/bootstrap.html
+- Steve Traugott, Lance Brown. *Why Order Matters: Turing Equivalence in Automated Systems Administration* (LISA '02 original): https://www.usenix.org/conference/lisa-02/why-order-matters-turing-equivalence-automated-systems-administration
+- Steve Traugott, Lance Brown. *Why Order Matters: Turing Equivalence in Automated Systems Administration* (Infrastructures.Org): http://www.infrastructures.org/papers/turing/turing.html
+- `decomk` image-management design note: `decomk/doc/image-management.md`
+
+???
+Keep this slide visible for Q&A; it provides provenance for both conceptual and implementation claims.
 
 ---
 
@@ -208,3 +272,6 @@ class: center, middle
 # Thank You
 
 ### Questions and review of concrete next migration steps
+
+???
+Close by moving from Q&A into concrete next actions and owners.
