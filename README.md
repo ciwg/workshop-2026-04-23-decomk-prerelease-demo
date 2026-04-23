@@ -13,13 +13,32 @@ Open with the outcome: this is a migration from ad-hoc prerelease practices to a
 
 ## Executive Summary
 
-- We are standardizing devcontainer setup on a single-path lifecycle.
-- `decomk-conf-cswg` now serves two roles: policy repo and image producer repo.
-- Consumer repos move faster by consuming promoted checkpoint images.
-- Ordering discipline is a design requirement, not an implementation preference.
+- We are standardizing devcontainer setup on a single-execution-path
+  lifecycle for both builds and updates.
+- We use a baseline image for all repos' codespaces so we have
+  predictable tools available for all.
+- Builds get checkpointed periodically to keep first-boot times short.
+- Codespaces start from those checkpoints and run user/repo-specific setup on top.
 
 ???
 State the headline early so each later slide feels like evidence for these four claims.
+
+---
+
+## Glossary 
+
+- **Devcontainer**: a ready-to-use development environment for a repo, running in a container.
+- **Stage-0**: the bootstrap step that prepares the container before normal work starts.
+- **Devcontainer Lifecycle phases**:
+  - `updateContent`: runs during build or prebuild.
+  - `postCreate`: runs during boot.
+- **Checkpoint image**: a prebuilt image that captures current state
+  of a devcontainer after `updateContent` but before `postCreate`.
+- **Producer repo**: the repo that builds/publishes shared checkpoint images.
+- **Consumer repo**: a repo that uses those promoted images.
+
+???
+Define terms gently and clearly so later jargon feels familiar instead of abrupt.
 
 ---
 
@@ -29,7 +48,7 @@ State the headline early so each later slide feels like evidence for these four 
 |---|---|---|
 | `decomk` | Bootstrap/runtime engine | Executes policy deterministically |
 | `decomk-conf-cswg` | Shared policy + checkpoint image producer | Centralizes setup logic and image publication |
-| `mob-sandbox` | Pilot consumer | Fast validation loop before wider rollout |
+| `mob-sandbox` | Pilot image consumer | Fast validation loop before wider rollout |
 
 ???
 Use this as the stable map for the rest of the deck; keep returning to these three repos.
@@ -40,11 +59,11 @@ Use this as the stable map for the rest of the deck; keep returning to these thr
 
 Shared setup follows one canonical execution path:
 
-1. `updateContent` runs common setup.
-2. Stage-0 calls `decomk run <action>`.
-3. `decomk` resolves tuples from `decomk.conf`.
-4. `make` runs the ordered target graph in stamp space.
-5. `postCreate` handles runtime/user-specific changes.
+1. Stage-0 calls `decomk run <action>`.
+2. `decomk` resolves tuples from `decomk.conf`.
+3. `make` runs the ordered target graph in stamp space.
+4. `updateContent` runs during build.
+5. `postCreate` runs during boot.
 
 ???
 Emphasize that producer builds and consumer prebuilds share the same `updateContent -> decomk run` path.
@@ -53,8 +72,9 @@ Emphasize that producer builds and consumer prebuilds share the same `updateCont
 
 ## Producer/Consumer Image Management
 
-- `decomk-conf-cswg` is the producer repo for checkpoint images.
-- Producer builds freeze shared state from the same prebuild path used in normal lifecycle execution.
+- `decomk-conf-cswg` is the producer repo for checkpoint images as
+  well as being the location for decomk.conf and the Makefile.
+- Producer freezes shared state from the same prebuild path used in normal lifecycle execution.
 - Consumer repos (`mob-sandbox`, `fpga-workbench`, others) reference promoted tags in `.devcontainer/devcontainer.json`.
 - User/runtime customization remains in `postCreate`, outside shared checkpoint layers.
 
@@ -124,60 +144,48 @@ Bridge to the papers: the migration choices are grounded in this property, not j
 
 ---
 
-## Infrastructures.Org Lineage
+## Event Sourcing (Accounting Journal Analogy)
 
-- Infrastructures.Org emerged from enterprise infrastructure work in the late 1990s and early 2000s.
-- `isconf` and later `decomk` share this lineage.
-- Two papers frame the model used here:
-  - *Bootstrapping an Infrastructure* (1998)
-  - *Why Order Matters* (2002)
+- Event sourcing records what happened as a time-ordered event stream.
+- Accounting example: journal entries.
+  - Each debit/credit entry records a completed business event.
+  - Current balances are derived by replaying entries in order.
+- Source of truth: event history.
 
 ???
-Position these papers as the conceptual foundation for the operating model now being applied.
+Set up the contrast first: event sourcing captures outcomes that already happened.
 
 ---
 
-## Paper Lens: Bootstrapping an Infrastructure (1998)
+## Command Sourcing (Accounting Source-Document Analogy)
 
-Key contributions used in this migration:
-
-- infrastructure as a policy-driven virtual machine,
-- bootstrap through explicit dependency ordering,
-- centralized source documents over host-local drift,
-- one method that scales from one host to many hosts.
-
-???
-Tie this directly to config repo policy + ordered Makefile execution.
-
----
-
-## Paper Lens: Why Order Matters (2002)
-
-Key contributions used in this migration:
-
-- host administration is computationally expressive and self-modifying,
-- circular dependencies are unavoidable,
-- test environments are mandatory,
-- production must replay the tested order to control risk.
-
-???
-Connect this to checkpoint promotion and deterministic rollout practices.
-
----
-
-## Command Sourcing in Practice
-
-- Event sourcing tracks events that occurred.
-- Command sourcing tracks ordered instructions that create state.
+- Command sourcing records the instructions that produce state.
+- Accounting source-document example:
+  - purchase order, invoice, and receipt are the command-like inputs,
+  - bookkeeping executes from those documents,
+  - resulting journal entries are the events.
 
 In this stack:
 
-- Makefile stanzas are source documents,
+- Makefile stanzas and lifecycle actions are source documents,
 - replay order is part of correctness,
-- state is the result of executed command history.
+- state is produced by executing that command history.
 
 ???
-Keep this practical: this is not abstract theory, it is how reproducibility is enforced.
+Tie the analogy explicitly: source documents drive actions; actions create events.
+
+---
+
+## House-Rebuild Analogy
+
+- Imagine keeping every plan, permit, receipt, procedure, and work record for a building.
+- Then the building burns down.
+- You could theoretically rebuild it to match the original, including paint layers, if you had detailed records.
+- How well reconstruction works depends on the level of detail you kept.
+- Command sourcing works the same way: recovery quality depends on the fidelity of command history.
+
+???
+Keep this visual and concrete: reconstruction is possible when history is detailed enough.
 
 ---
 
@@ -204,8 +212,9 @@ This slide defines day-to-day editing behavior and change governance.
 
 Even with disciplined ordering:
 
-- package repositories expire artifacts,
-- historical rebuilds can fail without local capture,
+- package repositories expire artifacts
+- historical rebuilds can fail without local capture
+  - so we keep old images as well as old config and Makefile stanzas
 - occasional corrective intervention is still necessary.
 
 So the model is:
