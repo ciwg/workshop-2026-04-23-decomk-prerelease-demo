@@ -260,6 +260,18 @@ Keep this visual and concrete: reconstruction is possible when history is detail
 
 ---
 
+## Prusa Analogy: Continue the Build
+
+- Prusa printers are assembled in the factory from a defined build procedure.
+- Later, you can buy an official upgrade kit to move from one model to the next.
+- That upgrade is like continuing the original build history, not starting from scratch.
+- In command sourcing terms: new steps extend prior state in a controlled, repeatable way.
+
+???
+Use this as a practical bridge from theory to hardware: upgrades work because procedure history is explicit and composable.
+
+---
+
 ## Source Documents and History Discipline
 
 Practical operating rule:
@@ -270,8 +282,9 @@ Practical operating rule:
 
 Result:
 
-- clearer provenance,
-- safer rollback reasoning,
+- clearer provenance
+- safer reasoning for rolling forward to new states,
+- safer reasoning for adding corrective stanzas when needed,
 - lower ambiguity during incident response.
 
 ???
