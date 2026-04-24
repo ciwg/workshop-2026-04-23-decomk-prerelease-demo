@@ -31,6 +31,15 @@ State the headline early so each later slide feels like evidence for these four 
 
 ---
 
+## Why do all this?
+
+- Avoid "works on my machine"
+- Avoid "whups, X isn't installed here"
+- Avoid "lemme install that on all our machines -- it'll just take a few days."
+- Avoid "oh, I thought I already installed that security patch on all of the machines already. must have missed one."
+
+---
+
 ## Current Status Snapshot
 
 - `decomk` defines and enforces the stage-0/lifecycle contract.
