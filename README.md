@@ -220,6 +220,33 @@ Tie the analogy explicitly: source documents drive actions; actions create event
 
 ---
 
+## Blockchain as Command Sourcing
+
+- A blockchain is also a command-sourcing system.
+- A blockchain "transaction" is executable logic, not just a static ledger row.
+- Each node executes the same transactions in the same order.
+- Because order and logic are shared, nodes converge on the same resulting state.
+- This is conceptually similar to replaying our ordered baseline-image history.
+
+???
+Connect this to familiar ground: same commands + same order -> same state, just at network scale.
+
+---
+
+## PromiseGrid Compared with Blockchain
+
+- Blockchain usually commits to one linear chain and one native currency model.
+- PromiseGrid allows branches and merges (more like Git history).
+- Instead of one fixed on-chain currency, participants can issue capability tokens
+  as service promises (microcurrency-like behavior).
+- Currency/branch behavior can be chosen by protocol per message/record (via pCID),
+  then refined through practical trial and error.
+
+???
+Frame this as a design-space expansion: branching/merging history plus pluggable exchange models.
+
+---
+
 ## House-Rebuild Analogy
 
 - Imagine keeping every plan, permit, receipt, procedure, and work record for a building.
